@@ -1,0 +1,180 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  TEAM_MEMBER
+}
+
+enum EventStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum PhotoStatus {
+  UPLOADING
+  READY
+  FAILED
+  DELETED
+}
+
+enum GalleryStatus {
+  DRAFT
+  PUBLISHED
+  UNPUBLISHED
+  EXPIRED
+}
+
+// ─────────────────────────────────────────────
+// MODELS
+// ─────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(TEAM_MEMBER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  createdEvents Event[]       @relation("EventCreator")
+  eventMembers  EventMember[]
+  photos        Photo[]
+
+  @@index([email])
+}
+
+model Event {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  eventDate   DateTime
+  location    String?
+  status      EventStatus @default(DRAFT)
+  createdById String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  creator   User          @relation("EventCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  members   EventMember[]
+  photos    Photo[]
+  galleries Gallery[]
+
+  @@index([createdById])
+  @@index([eventDate])
+  @@index([status])
+}
+
+model EventMember {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  // Relations
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
+}
+
+model Photo {
+  id               String      @id @default(cuid())
+  eventId          String
+  uploadedById     String
+  filename         String
+  originalFilename String
+  storageKey       String      @unique
+  thumbnailKey     String?
+  optimizedKey     String?
+  mimeType         String
+  fileSize         Int
+  width            Int?
+  height           Int?
+  status           PhotoStatus @default(UPLOADING)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  // Relations
+  event      Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  uploadedBy User           @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  galleries  GalleryPhoto[]
+
+  @@index([eventId])
+  @@index([uploadedById])
+  @@index([createdAt])
+  @@index([status])
+}
+
+model Gallery {
+  id          String        @id @default(cuid())
+  eventId     String
+  name        String?
+  publicSlug  String        @unique
+  pinHash     String
+  status      GalleryStatus @default(DRAFT)
+  publishedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  event    Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  photos   GalleryPhoto[]
+  sessions GallerySession[]
+
+  @@index([eventId])
+  @@index([publicSlug])
+  @@index([status])
+}
+
+model GalleryPhoto {
+  id        String   @id @default(cuid())
+  galleryId String
+  photoId   String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  // Relations
+  gallery Gallery @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  photo   Photo   @relation(fields: [photoId], references: [id], onDelete: Cascade)
+
+  @@unique([galleryId, photoId])
+  @@index([galleryId])
+  @@index([photoId])
+}
+
+model GallerySession {
+  id        String   @id @default(cuid())
+  galleryId String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  // Relations
+  gallery Gallery @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+
+  @@index([galleryId])
+  @@index([tokenHash])
+  @@index([expiresAt])
+}
