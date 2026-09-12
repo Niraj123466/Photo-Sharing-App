@@ -190,7 +190,8 @@ export function EventDetailClient({
     }
   }
 
-  const galleryPublicUrl = gallery ? `${appUrl}/gallery/${gallery.publicSlug}` : null;
+  const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : appUrl;
+  const galleryPublicUrl = gallery ? `${origin}/gallery/${gallery.publicSlug}` : null;
 
   function copyToClipboard(text: string, type: "link" | "pin") {
     navigator.clipboard.writeText(text);
