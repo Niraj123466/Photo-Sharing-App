@@ -9,6 +9,7 @@ const envSchema = z.object({
   R2_SECRET_ACCESS_KEY: z.string().min(1, "R2_SECRET_ACCESS_KEY is required"),
   R2_BUCKET_NAME: z.string().min(1, "R2_BUCKET_NAME is required"),
   R2_ENDPOINT: z.string().url("R2_ENDPOINT must be a valid URL"),
+  R2_REGION: z.string().optional().default("auto"),
   MAX_UPLOAD_SIZE: z.coerce.number().default(52428800),
   GALLERY_SESSION_DURATION: z.coerce.number().default(3600),
   SEED_ADMIN_PASSWORD: z.string().default("Admin@demo123"),

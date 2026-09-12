@@ -22,8 +22,14 @@ function getR2Client(): S3Client {
     );
   }
 
+  // Auto-detect region if Backblaze B2 (e.g. s3.us-east-005.backblazeb2.com) or custom
+  const detectedRegion = endpoint.includes("backblazeb2.com")
+    ? endpoint.replace(/^https?:\/\/s3\./, "").split(".")[0]
+    : "auto";
+  const region = process.env.R2_REGION || detectedRegion;
+
   return new S3Client({
-    region: "auto",
+    region,
     endpoint,
     credentials: {
       accessKeyId,
