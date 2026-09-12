@@ -8,19 +8,25 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const variantClasses = {
-  default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow glow",
-  destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow",
-  outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-  secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-  ghost: "hover:bg-accent hover:text-accent-foreground",
-  link: "text-primary underline-offset-4 hover:underline",
+  default:
+    "bg-primary text-primary-foreground font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_3px_rgba(0,0,0,0.4)] hover:bg-primary/95 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_0_16px_rgba(99,102,241,0.35)] transition-all",
+  destructive:
+    "bg-destructive/90 text-destructive-foreground hover:bg-destructive shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]",
+  outline:
+    "border border-white/[0.1] bg-card/60 text-slate-200 hover:bg-white/[0.05] hover:text-white hover:border-white/[0.18] shadow-sm",
+  secondary:
+    "bg-[#141622] text-slate-200 border border-white/[0.08] hover:bg-[#1D2032] hover:text-white hover:border-white/[0.14] shadow-sm",
+  ghost:
+    "text-slate-400 hover:text-slate-100 hover:bg-white/[0.06]",
+  link:
+    "text-primary underline-offset-4 hover:underline",
 };
 
 const sizeClasses = {
-  default: "h-9 px-4 py-2",
-  sm: "h-8 px-3 text-xs",
-  lg: "h-11 px-8",
-  icon: "h-9 w-9",
+  default: "h-9 px-4 py-2 text-sm",
+  sm: "h-8 px-3 text-xs font-medium rounded-[6px]",
+  lg: "h-10 px-6 text-sm font-medium",
+  icon: "h-8 w-8 p-0 flex items-center justify-center",
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(

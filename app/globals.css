@@ -4,41 +4,41 @@
 
 @layer base {
   :root {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 95%;
+    --background: 232 28% 4%;        /* #090A0F Base obsidian canvas */
+    --foreground: 210 40% 98%;        /* #F8FAFC Primary text */
 
-    --card: 222 47% 9%;
-    --card-foreground: 210 40% 95%;
+    --card: 233 24% 7%;               /* #0D0E15 Surface Elevation 1 */
+    --card-foreground: 210 40% 98%;
 
-    --popover: 222 47% 9%;
-    --popover-foreground: 210 40% 95%;
+    --popover: 231 25% 11%;           /* #141622 Surface Elevation 2 */
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 263 70% 65%;
+    --primary: 239 84% 67%;           /* #6366F1 Obsidian Indigo Accent */
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 95%;
+    --secondary: 231 25% 11%;         /* #141622 Elevated charcoal */
+    --secondary-foreground: 215 20% 75%;
 
-    --muted: 217 33% 14%;
-    --muted-foreground: 215 20% 55%;
+    --muted: 233 24% 8%;              /* Subtle dark container */
+    --muted-foreground: 215 16% 55%;   /* #94A3B8 Secondary text */
 
-    --accent: 263 70% 65%;
+    --accent: 239 84% 67%;
     --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 263 70% 65%;
+    --border: 240 10% 14%;            /* rgba(255,255,255,0.08) hairline */
+    --input: 240 10% 14%;
+    --ring: 239 84% 67%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;                 /* 8px crisp radius */
 
-    --chart-1: 263 70% 65%;
-    --chart-2: 196 80% 55%;
-    --chart-3: 142 70% 50%;
-    --chart-4: 48 95% 65%;
-    --chart-5: 0 72% 60%;
+    --chart-1: 239 84% 67%;           /* Indigo */
+    --chart-2: 189 94% 43%;           /* Cyan #06B6D4 */
+    --chart-3: 160 84% 39%;           /* Emerald #10B981 */
+    --chart-4: 38 92% 50%;            /* Amber #F59E0B */
+    --chart-5: 0 84% 60%;             /* Rose */
   }
 }
 
@@ -77,46 +77,81 @@
 }
 
 @layer utilities {
+  /* Hairline precision border */
+  .border-hairline {
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .border-hairline-hover:hover {
+    border-color: rgba(255, 255, 255, 0.16);
+  }
+
+  /* Obsidian glass surface with top bevel rim light */
+  .obsidian-surface {
+    background: rgba(13, 14, 21, 0.75);
+    backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+  }
+
   /* Glass morphism card */
   .glass {
-    @apply bg-white/5 backdrop-blur-md border border-white/10;
+    background: rgba(20, 22, 34, 0.65);
+    backdrop-filter: blur(12px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
   }
 
-  /* Premium gradient text */
+  /* Subtle workstation gradient text */
   .gradient-text {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-indigo-400;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-slate-100 via-indigo-200 to-indigo-400;
   }
 
-  /* Subtle glow */
-  .glow {
-    box-shadow: 0 0 40px -8px hsl(263 70% 65% / 0.4);
+  /* Surgical micro-glow */
+  .glow-indigo {
+    box-shadow: 0 0 20px -2px rgba(99, 102, 241, 0.35);
+  }
+
+  .glow-cyan {
+    box-shadow: 0 0 16px -2px rgba(6, 182, 212, 0.35);
   }
 
   /* Shimmer skeleton animation */
   .skeleton {
     background: linear-gradient(
       90deg,
-      hsl(217 33% 14%) 25%,
-      hsl(217 33% 18%) 50%,
-      hsl(217 33% 14%) 75%
+      hsl(233 24% 8%) 25%,
+      hsl(231 25% 13%) 50%,
+      hsl(233 24% 8%) 75%
     );
     background-size: 200% 100%;
     animation: shimmer 2s linear infinite;
   }
 
+  /* Tabular figures for stats, PINs, and timecodes */
+  .tnum {
+    font-feature-settings: "tnum" 1;
+  }
+
   /* Masonry grid */
   .masonry-grid {
-    columns: 2;
-    column-gap: 1rem;
+    columns: 1;
+    column-gap: 1.25rem;
   }
 
   @media (min-width: 640px) {
+    .masonry-grid {
+      columns: 2;
+    }
+  }
+
+  @media (min-width: 1024px) {
     .masonry-grid {
       columns: 3;
     }
   }
 
-  @media (min-width: 1024px) {
+  @media (min-width: 1280px) {
     .masonry-grid {
       columns: 4;
     }
@@ -124,6 +159,6 @@
 
   .masonry-item {
     break-inside: avoid;
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
   }
 }

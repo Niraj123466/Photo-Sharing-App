@@ -1,8 +1,23 @@
 import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import {
+  CalendarDays,
+  Activity,
+  Camera,
+  Globe2,
+  Users,
+  ArrowUpRight,
+  Plus,
+  Sparkles,
+  ChevronRight,
+  Clock,
+  Layers,
+} from "lucide-react";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -32,15 +47,21 @@ export default async function DashboardPage() {
     role === "ADMIN"
       ? await prisma.event.findMany({
           where: { createdById: userId },
-          include: { _count: { select: { photos: true, members: true } } },
+          include: {
+            _count: { select: { photos: true, members: true } },
+            galleries: { select: { id: true, status: true, publicSlug: true } },
+          },
           orderBy: { createdAt: "desc" },
-          take: 5,
+          take: 6,
         })
       : await prisma.event.findMany({
           where: { members: { some: { userId } } },
-          include: { _count: { select: { photos: true, members: true } } },
+          include: {
+            _count: { select: { photos: true, members: true } },
+            galleries: { select: { id: true, status: true, publicSlug: true } },
+          },
           orderBy: { createdAt: "desc" },
-          take: 5,
+          take: 6,
         });
 
   const adminStats = stats as typeof stats & {
@@ -56,46 +77,76 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">
-          Welcome back,{" "}
-          <span className="gradient-text">{session.user.name?.split(" ")[0]}</span>
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          {role === "ADMIN"
-            ? "Here's an overview of your photography platform."
-            : "Here's your work overview."}
-        </p>
+      {/* Top Header & Workstation Action Toolbar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/[0.08]">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-mono text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-[4px]">
+              WORKSPACE OVERVIEW
+            </span>
+          </div>
+          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-slate-100">
+            Welcome, {session.user.name?.split(" ")[0]}
+          </h1>
+          <p className="text-xs lg:text-sm text-slate-400 mt-0.5">
+            {role === "ADMIN"
+              ? "Monitor live operations, manage photographer teams, and curate client galleries."
+              : "Review your assigned events and synchronize camera uploads."}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {role === "ADMIN" ? (
+            <>
+              <Link href="/events">
+                <Button size="sm">
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Create Event</span>
+                </Button>
+              </Link>
+            </>
+          ) : (
+            <Link href="/my-events">
+              <Button size="sm">
+                <Camera className="w-3.5 h-3.5" />
+                <span>Upload Photos</span>
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI Metrics Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         {role === "ADMIN" ? (
           <>
             <StatCard
               title="Total Events"
               value={adminStats.totalEvents ?? 0}
-              icon="📅"
-              color="primary"
+              subtitle="Registered productions"
+              icon={CalendarDays}
+              variant="indigo"
             />
             <StatCard
               title="Active Events"
               value={adminStats.activeEvents ?? 0}
-              icon="🟢"
-              color="success"
+              subtitle="In progress & live"
+              icon={Activity}
+              variant="emerald"
             />
             <StatCard
               title="Total Photos"
               value={adminStats.totalPhotos ?? 0}
-              icon="📷"
-              color="info"
+              subtitle="Synced to cloud storage"
+              icon={Camera}
+              variant="cyan"
             />
             <StatCard
-              title="Published Galleries"
+              title="Client Galleries"
               value={adminStats.publishedGalleries ?? 0}
-              icon="🎨"
-              color="warning"
+              subtitle="PIN-protected live"
+              icon={Globe2}
+              variant="amber"
             />
           </>
         ) : (
@@ -103,55 +154,133 @@ export default async function DashboardPage() {
             <StatCard
               title="Assigned Events"
               value={memberStats.assignedEvents ?? 0}
-              icon="📅"
-              color="primary"
+              subtitle="Current crew assignments"
+              icon={CalendarDays}
+              variant="indigo"
             />
             <StatCard
-              title="My Photos"
+              title="Photos Uploaded"
               value={memberStats.myPhotos ?? 0}
-              icon="📷"
-              color="info"
+              subtitle="Processed assets"
+              icon={Camera}
+              variant="cyan"
             />
           </>
         )}
       </div>
 
-      {/* Recent events */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Recent Events</h2>
+      {/* Recent Events Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-base lg:text-lg font-semibold tracking-tight text-slate-100">
+              {role === "ADMIN" ? "Recent Events" : "My Assigned Events"}
+            </h2>
+            <p className="text-xs text-slate-400">
+              {role === "ADMIN"
+                ? "Active and recently finalized photography productions."
+                : "Events ready for asset ingestion."}
+            </p>
+          </div>
           <Link
             href={role === "ADMIN" ? "/events" : "/my-events"}
-            className="text-sm text-primary hover:underline"
+            className="group inline-flex items-center gap-1 text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
           >
-            View all →
+            <span>View all</span>
+            <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
           </Link>
         </div>
 
         {recentEvents.length === 0 ? (
-          <EmptyState
-            title="No events yet"
-            description={
-              role === "ADMIN"
-                ? "Create your first event to get started."
-                : "You haven't been assigned to any events yet."
-            }
-            action={
-              role === "ADMIN" ? (
-                <Link
-                  href="/events/new"
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
-                >
-                  + Create Event
-                </Link>
-              ) : null
-            }
-          />
+          <div className="p-10 text-center rounded-[8px] border border-dashed border-white/[0.08] bg-[#0D0E15]/50">
+            <div className="w-10 h-10 rounded-full bg-white/[0.04] border border-white/[0.08] flex items-center justify-center mx-auto mb-3 text-slate-400">
+              <CalendarDays className="w-5 h-5" />
+            </div>
+            <h3 className="font-medium text-sm text-slate-200">No events found</h3>
+            <p className="text-xs text-slate-400 mt-1 mb-4 max-w-sm mx-auto">
+              {role === "ADMIN"
+                ? "Get started by creating your first photography event."
+                : "You have not been assigned to any events yet."}
+            </p>
+            {role === "ADMIN" && (
+              <Link href="/events">
+                <Button size="sm">
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Create First Event</span>
+                </Button>
+              </Link>
+            )}
+          </div>
         ) : (
-          <div className="grid gap-3">
-            {recentEvents.map((event) => (
-              <EventRow key={event.id} event={event} role={role} />
-            ))}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {recentEvents.map((event) => {
+              const gallery = event.galleries[0];
+              const isPublished = gallery?.status === "PUBLISHED";
+              const href = role === "ADMIN" ? `/events/${event.id}` : `/my-events/${event.id}/upload`;
+
+              return (
+                <Link key={event.id} href={href} className="block group">
+                  <Card className="h-full border-white/[0.08] bg-[#0D0E15] hover:border-white/[0.18] hover:bg-[#141622]/60 transition-all duration-200">
+                    <CardContent className="p-4 flex flex-col justify-between h-full space-y-4">
+                      <div>
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <h3 className="font-semibold text-sm text-slate-100 group-hover:text-indigo-300 transition-colors line-clamp-1">
+                            {event.name}
+                          </h3>
+                          <Badge
+                            variant={
+                              event.status === "ACTIVE"
+                                ? "success"
+                                : event.status === "DRAFT"
+                                ? "warning"
+                                : "secondary"
+                            }
+                            dot={event.status === "ACTIVE"}
+                          >
+                            {event.status}
+                          </Badge>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                          <Clock className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                          <span className="font-mono text-[11px]">
+                            {new Date(event.eventDate).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs text-slate-400">
+                        <div className="flex items-center gap-3">
+                          <span className="flex items-center gap-1 font-mono text-[11px]">
+                            <Camera className="w-3 h-3 text-slate-400" />
+                            {event._count.photos}
+                          </span>
+                          <span className="flex items-center gap-1 font-mono text-[11px]">
+                            <Users className="w-3 h-3 text-slate-400" />
+                            {event._count.members}
+                          </span>
+                        </div>
+
+                        {isPublished ? (
+                          <span className="font-mono text-[10px] text-emerald-400 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            Gallery Live
+                          </span>
+                        ) : (
+                          <span className="font-mono text-[10px] text-slate-400 group-hover:text-slate-200 transition-colors flex items-center gap-0.5">
+                            Open <ArrowUpRight className="w-3 h-3" />
+                          </span>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>
@@ -162,95 +291,55 @@ export default async function DashboardPage() {
 function StatCard({
   title,
   value,
-  icon,
-  color,
+  subtitle,
+  icon: Icon,
+  variant,
 }: {
   title: string;
   value: number;
-  icon: string;
-  color: "primary" | "success" | "info" | "warning";
+  subtitle: string;
+  icon: React.ComponentType<{ className?: string }>;
+  variant: "indigo" | "emerald" | "cyan" | "amber";
 }) {
-  const colorMap = {
-    primary: "bg-violet-500/10 border-violet-500/20",
-    success: "bg-green-500/10 border-green-500/20",
-    info: "bg-blue-500/10 border-blue-500/20",
-    warning: "bg-yellow-500/10 border-yellow-500/20",
+  const variantStyles = {
+    indigo: {
+      border: "hover:border-indigo-500/30",
+      iconBg: "bg-indigo-500/10 border-indigo-500/20 text-indigo-400",
+      accent: "text-indigo-400",
+    },
+    emerald: {
+      border: "hover:border-emerald-500/30",
+      iconBg: "bg-emerald-500/10 border-emerald-500/20 text-emerald-400",
+      accent: "text-emerald-400",
+    },
+    cyan: {
+      border: "hover:border-cyan-500/30",
+      iconBg: "bg-cyan-500/10 border-cyan-500/20 text-cyan-400",
+      accent: "text-cyan-400",
+    },
+    amber: {
+      border: "hover:border-amber-500/30",
+      iconBg: "bg-amber-500/10 border-amber-500/20 text-amber-400",
+      accent: "text-amber-400",
+    },
   };
 
+  const style = variantStyles[variant];
+
   return (
-    <Card className={`${colorMap[color]} border`}>
-      <CardContent className="p-5">
-        <div className="text-2xl mb-2">{icon}</div>
-        <div className="text-2xl font-bold">{value.toLocaleString()}</div>
-        <div className="text-xs text-muted-foreground mt-0.5">{title}</div>
+    <Card className={`border-white/[0.08] bg-[#0D0E15] ${style.border} transition-all duration-200 group`}>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-medium text-slate-400">{title}</span>
+          <div className={`w-7 h-7 rounded-[6px] border flex items-center justify-center ${style.iconBg}`}>
+            <Icon className="w-3.5 h-3.5" />
+          </div>
+        </div>
+        <div className="font-mono text-2xl font-bold tracking-tight text-slate-100 tnum">
+          {value.toLocaleString()}
+        </div>
+        <p className="text-[11px] text-slate-400 mt-1 truncate">{subtitle}</p>
       </CardContent>
     </Card>
-  );
-}
-
-function EventRow({
-  event,
-  role,
-}: {
-  event: {
-    id: string;
-    name: string;
-    status: string;
-    eventDate: Date;
-    _count: { photos: number; members: number };
-  };
-  role: string;
-}) {
-  const statusColors = {
-    DRAFT: "bg-yellow-500/15 text-yellow-400",
-    ACTIVE: "bg-green-500/15 text-green-400",
-    COMPLETED: "bg-blue-500/15 text-blue-400",
-    ARCHIVED: "bg-gray-500/15 text-gray-400",
-  };
-
-  const href = role === "ADMIN" ? `/events/${event.id}` : `/my-events/${event.id}`;
-
-  return (
-    <Link href={href}>
-      <div className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-card/50 hover:bg-card/80 hover:border-primary/30 transition-all duration-200 group">
-        <div>
-          <p className="font-medium group-hover:text-primary transition-colors">{event.name}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {new Date(event.eventDate).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })}{" "}
-            · {event._count.photos} photos · {event._count.members} members
-          </p>
-        </div>
-        <span
-          className={`px-2 py-1 rounded-full text-xs font-medium ${
-            statusColors[event.status as keyof typeof statusColors] ?? "bg-gray-500/15 text-gray-400"
-          }`}
-        >
-          {event.status}
-        </span>
-      </div>
-    </Link>
-  );
-}
-
-function EmptyState({
-  title,
-  description,
-  action,
-}: {
-  title: string;
-  description: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="text-center py-12 rounded-xl border border-dashed border-border/50">
-      <div className="text-4xl mb-3">📸</div>
-      <h3 className="font-medium text-lg">{title}</h3>
-      <p className="text-muted-foreground text-sm mt-1 mb-4">{description}</p>
-      {action}
-    </div>
   );
 }

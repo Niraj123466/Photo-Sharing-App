@@ -6,6 +6,25 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  CalendarDays,
+  MapPin,
+  Clock,
+  Camera,
+  Users,
+  Share2,
+  Lock,
+  Copy,
+  ExternalLink,
+  Check,
+  RefreshCw,
+  Plus,
+  Trash2,
+  ArrowRight,
+  ShieldAlert,
+  Sparkles,
+  ChevronLeft,
+} from "lucide-react";
 
 type Member = {
   id: string;
@@ -40,7 +59,7 @@ type Props = {
   appUrl: string;
 };
 
-const tabs = ["Overview", "Team", "Photos", "Gallery"] as const;
+const tabs = ["Overview", "Photos", "Gallery", "Team"] as const;
 
 export function EventDetailClient({
   event,
@@ -60,6 +79,8 @@ export function EventDetailClient({
   const [creatingGallery, setCreatingGallery] = useState(false);
   const [regeneratingPin, setRegeneratingPin] = useState(false);
   const [currentPin, setCurrentPin] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedPin, setCopiedPin] = useState(false);
 
   async function handleAddMember() {
     if (!selectedUserId) return;
@@ -101,14 +122,18 @@ export function EventDetailClient({
   async function handleCreateGallery() {
     setCreatingGallery(true);
     try {
-      const res = await fetch(`/api/events/${event.id}/gallery`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const res = await fetch(`/api/events/${event.id}/gallery`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error?.message ?? "Failed to create gallery.");
       } else {
         setGallery(data.data);
         setCurrentPin(data.data.pin);
-        toast.success("Gallery created! Save the PIN below.");
+        toast.success("Gallery created! Note down the PIN below.");
       }
     } finally {
       setCreatingGallery(false);
@@ -125,7 +150,7 @@ export function EventDetailClient({
         toast.error(data.error?.message ?? "Failed to publish.");
       } else {
         setGallery(data.data);
-        toast.success("Gallery published!");
+        toast.success("Gallery is now published for clients!");
       }
     } finally {
       setPublishingGallery(false);
@@ -148,11 +173,15 @@ export function EventDetailClient({
     if (!gallery) return;
     setRegeneratingPin(true);
     try {
-      const res = await fetch(`/api/galleries/${gallery.id}/regenerate-pin`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const res = await fetch(`/api/galleries/${gallery.id}/regenerate-pin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
       const data = await res.json();
       if (res.ok) {
         setCurrentPin(data.data.pin);
-        toast.success("PIN regenerated! Save it now.");
+        toast.success("PIN regenerated successfully!");
       } else {
         toast.error(data.error?.message);
       }
@@ -161,38 +190,97 @@ export function EventDetailClient({
     }
   }
 
-  const galleryUrl = gallery ? `${appUrl}/gallery/${gallery.publicSlug}` : null;
+  const galleryPublicUrl = gallery ? `${appUrl}/gallery/${gallery.publicSlug}` : null;
+
+  function copyToClipboard(text: string, type: "link" | "pin") {
+    navigator.clipboard.writeText(text);
+    if (type === "link") {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+      toast.success("Gallery link copied to clipboard!");
+    } else {
+      setCopiedPin(true);
+      setTimeout(() => setCopiedPin(false), 2000);
+      toast.success("PIN copied to clipboard!");
+    }
+  }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <Link href="/events" className="text-muted-foreground hover:text-foreground text-sm">
-              ← Events
+    <div className="space-y-6 animate-fade-in text-slate-100">
+      {/* Top Breadcrumb & Hero Header */}
+      <div className="pb-5 border-b border-white/[0.08]">
+        <Link
+          href="/events"
+          className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors mb-2"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" />
+          <span>Back to Events</span>
+        </Link>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-slate-100">
+                {event.name}
+              </h1>
+              <Badge
+                variant={
+                  event.status === "ACTIVE"
+                    ? "success"
+                    : event.status === "DRAFT"
+                    ? "warning"
+                    : "secondary"
+                }
+                dot={event.status === "ACTIVE"}
+              >
+                {event.status}
+              </Badge>
+              {gallery?.status === "PUBLISHED" && (
+                <Badge variant="cyan" dot>
+                  Gallery Live
+                </Badge>
+              )}
+            </div>
+
+            <div className="flex items-center gap-4 mt-2 text-xs text-slate-400 flex-wrap">
+              <span className="flex items-center gap-1 font-mono text-[11px]">
+                <Clock className="w-3 h-3 text-slate-400" />
+                {new Date(event.eventDate).toLocaleDateString("en-US", {
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </span>
+              {event.location && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-slate-400" />
+                  {event.location}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link href={`/events/${event.id}/photos`}>
+              <Button size="sm">
+                <Camera className="w-3.5 h-3.5" />
+                <span>Curate Photos</span>
+              </Button>
             </Link>
           </div>
-          <h1 className="text-3xl font-bold mt-1">{event.name}</h1>
-          {event.location && (
-            <p className="text-muted-foreground mt-1">📍 {event.location}</p>
-          )}
         </div>
-        <Badge variant={event.status === "ACTIVE" ? "success" : "outline"}>
-          {event.status}
-        </Badge>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-border/50 gap-1">
+      {/* Segmented Control Navigation Tabs */}
+      <div className="flex border-b border-white/[0.08] gap-2">
         {tabs.map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-3.5 py-2 text-xs font-medium border-b-2 transition-all duration-150 ${
               activeTab === tab
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "border-indigo-500 text-indigo-400 font-semibold"
+                : "border-transparent text-slate-400 hover:text-slate-200"
             }`}
           >
             {tab}
@@ -200,72 +288,249 @@ export function EventDetailClient({
         ))}
       </div>
 
-      {/* Tab content */}
+      {/* Overview Tab */}
       {activeTab === "Overview" && (
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
-            <CardHeader><CardTitle>Event Details</CardTitle></CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <Row label="Name" value={event.name} />
-              <Row label="Date" value={new Date(event.eventDate).toLocaleDateString("en-US", { dateStyle: "long" })} />
+            <CardHeader>
+              <CardTitle>Production Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs">
+              <Row label="Event Name" value={event.name} />
+              <Row
+                label="Shoot Date"
+                value={new Date(event.eventDate).toLocaleDateString("en-US", {
+                  dateStyle: "long",
+                })}
+              />
               {event.location && <Row label="Location" value={event.location} />}
-              {event.description && <Row label="Description" value={event.description} />}
-              <Row label="Status" value={event.status} />
+              {event.description && <Row label="Notes" value={event.description} />}
+              <Row label="Production Status" value={event.status} />
             </CardContent>
           </Card>
+
           <Card>
-            <CardHeader><CardTitle>Statistics</CardTitle></CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <Row label="Team Members" value={members.length} />
-              <Row label="Ready Photos" value={readyPhotos} />
-              <Row label="Selected for Gallery" value={selectedPhotos} />
-              <Row label="Gallery Status" value={gallery?.status ?? "No gallery"} />
+            <CardHeader>
+              <CardTitle>Asset & Curation Pipeline</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs">
+              <Row label="Assigned Photographers" value={`${members.length} members`} />
+              <Row label="Cloud Ingested Assets" value={`${readyPhotos} ready photos`} />
+              <Row label="Selected for Client Gallery" value={`${selectedPhotos} photos`} />
+              <Row label="Client Gallery State" value={gallery?.status ?? "Not created yet"} />
             </CardContent>
           </Card>
         </div>
       )}
 
+      {/* Photos Tab */}
+      {activeTab === "Photos" && (
+        <div className="space-y-4">
+          <div className="p-6 rounded-[8px] border border-white/[0.08] bg-[#0D0E15] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="font-semibold text-sm text-slate-100">Photo Review & Curation Workstation</h3>
+              <p className="text-xs text-slate-400 mt-1">
+                {readyPhotos} assets processed · {selectedPhotos} currently curated for client viewing.
+              </p>
+            </div>
+            <Link href={`/events/${event.id}/photos`}>
+              <Button size="sm">
+                <span>Launch Curation Workstation</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Gallery Tab */}
+      {activeTab === "Gallery" && (
+        <div className="space-y-4">
+          {!gallery ? (
+            <Card>
+              <CardContent className="p-10 text-center">
+                <div className="w-10 h-10 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto mb-3 text-indigo-400">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <h3 className="font-semibold text-sm text-slate-100">No Client Gallery Created Yet</h3>
+                <p className="text-xs text-slate-400 mt-1 mb-4 max-w-sm mx-auto">
+                  Create a secure, PIN-protected public gallery link for your clients to view and download their curated photos.
+                </p>
+                <Button onClick={handleCreateGallery} loading={creatingGallery} size="sm">
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Create Client Gallery</span>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Client Access & Security</CardTitle>
+                    <Badge variant={gallery.status === "PUBLISHED" ? "success" : "warning"} dot>
+                      {gallery.status}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4 text-xs">
+                  <div>
+                    <label className="text-[11px] font-mono text-slate-400 uppercase">Shareable Gallery URL</label>
+                    <div className="mt-1 flex items-center gap-2">
+                      <div className="flex-1 p-2 rounded-[6px] border border-white/[0.08] bg-[#090A0F] font-mono text-xs text-slate-200 truncate">
+                        {galleryPublicUrl}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-2.5"
+                        onClick={() => galleryPublicUrl && copyToClipboard(galleryPublicUrl, "link")}
+                      >
+                        {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      </Button>
+                      {gallery.status === "PUBLISHED" && galleryPublicUrl && (
+                        <Link href={galleryPublicUrl} target="_blank">
+                          <Button variant="secondary" size="sm" className="h-8 px-2.5">
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </Button>
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-mono text-slate-400 uppercase">Gallery Access PIN</label>
+                      <button
+                        onClick={handleRegeneratePin}
+                        disabled={regeneratingPin}
+                        className="text-[11px] font-mono text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${regeneratingPin ? "animate-spin" : ""}`} />
+                        <span>Regenerate PIN</span>
+                      </button>
+                    </div>
+
+                    {currentPin ? (
+                      <div className="mt-1 p-3 rounded-[6px] border border-indigo-500/30 bg-indigo-500/[0.06] flex items-center justify-between">
+                        <div>
+                          <span className="font-mono text-lg font-bold tracking-widest text-indigo-300">
+                            {currentPin}
+                          </span>
+                          <p className="text-[10px] text-amber-400/80 mt-0.5">
+                            Active PIN for clients. Save or copy it now.
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs px-2.5"
+                          onClick={() => copyToClipboard(currentPin, "pin")}
+                        >
+                          {copiedPin ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="mt-1 p-2.5 rounded-[6px] border border-white/[0.06] bg-[#090A0F] text-slate-400 font-mono text-xs flex items-center justify-between">
+                        <span>•••••• (Stored as bcrypt hash)</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-[11px] px-2 text-indigo-400"
+                          onClick={handleRegeneratePin}
+                        >
+                          Show New PIN
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Publication Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-xs">
+                  <p className="text-slate-400 leading-relaxed">
+                    When published, anyone with the shareable link and the 6-digit PIN can view curated photos in high resolution and download them.
+                  </p>
+
+                  <div className="pt-2 flex flex-col gap-2.5">
+                    {gallery.status === "PUBLISHED" ? (
+                      <Button variant="outline" onClick={handleUnpublish} className="w-full">
+                        Unpublish Gallery (Revoke Public Access)
+                      </Button>
+                    ) : (
+                      <Button onClick={handlePublish} loading={publishingGallery} className="w-full">
+                        <Share2 className="w-3.5 h-3.5" />
+                        <span>Publish Gallery to Clients</span>
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Team Tab */}
       {activeTab === "Team" && (
         <div className="space-y-4">
           <Card>
-            <CardHeader><CardTitle>Add Team Member</CardTitle></CardHeader>
-            <CardContent className="flex gap-3">
+            <CardHeader>
+              <CardTitle>Assign Photographer Crew</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col sm:flex-row gap-2.5">
               <select
-                className="flex-1 h-9 rounded-md border border-input bg-transparent px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex-1 h-9 rounded-[6px] border border-white/[0.1] bg-[#0D0E15] px-3 text-xs text-slate-200 focus-visible:outline-none focus-visible:border-indigo-500"
                 value={selectedUserId}
                 onChange={(e) => setSelectedUserId(e.target.value)}
               >
-                <option value="">Select a user to add...</option>
+                <option value="">Select a registered team member...</option>
                 {availableUsers.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.name} ({u.email}) — {u.role}
                   </option>
                 ))}
               </select>
-              <Button onClick={handleAddMember} loading={addingMember} disabled={!selectedUserId}>
-                Add
+              <Button onClick={handleAddMember} loading={addingMember} disabled={!selectedUserId} size="sm">
+                <Plus className="w-3.5 h-3.5" />
+                <span>Assign to Event</span>
               </Button>
             </CardContent>
           </Card>
-          <div className="space-y-3">
+
+          <div className="space-y-2">
             {members.length === 0 ? (
-              <p className="text-muted-foreground text-sm py-6 text-center">No team members assigned yet.</p>
+              <div className="text-center py-10 rounded-[8px] border border-dashed border-white/[0.08] text-slate-400 text-xs">
+                No photographers assigned yet. Assign a team member above.
+              </div>
             ) : (
               members.map((m) => (
-                <div key={m.id} className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-card/50">
-                  <div>
-                    <p className="font-medium text-sm">{m.user.name}</p>
-                    <p className="text-xs text-muted-foreground">{m.user.email}</p>
+                <div
+                  key={m.id}
+                  className="flex items-center justify-between p-3 rounded-[7px] border border-white/[0.08] bg-[#0D0E15]"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center font-mono text-xs font-semibold text-indigo-300">
+                      {m.user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-medium text-xs text-slate-200">{m.user.name}</p>
+                      <p className="text-[11px] text-slate-400 font-mono">{m.user.email}</p>
+                    </div>
                   </div>
+
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary">{m.user.role}</Badge>
                     <button
                       onClick={() => handleRemoveMember(m.userId)}
-                      className="p-1.5 rounded hover:bg-destructive/10 hover:text-red-400 transition-colors"
+                      className="p-1.5 rounded-[5px] text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                      title="Remove from event"
                     >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -274,99 +539,15 @@ export function EventDetailClient({
           </div>
         </div>
       )}
-
-      {activeTab === "Photos" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">{readyPhotos} ready photos · {selectedPhotos} selected</p>
-            </div>
-            <Link href={`/events/${event.id}/photos`}>
-              <Button>Review &amp; Select Photos →</Button>
-            </Link>
-          </div>
-          <div className="p-8 rounded-xl border border-dashed border-border/50 text-center text-muted-foreground text-sm">
-            Go to the Photos tab to review uploads, select photos, and manage your gallery selection.
-          </div>
-        </div>
-      )}
-
-      {activeTab === "Gallery" && (
-        <div className="space-y-4">
-          {!gallery ? (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <div className="text-4xl mb-3">🎨</div>
-                <h3 className="font-medium text-lg">No gallery yet</h3>
-                <p className="text-muted-foreground text-sm mt-1 mb-4">
-                  Select photos from the Photos tab first, then create a gallery.
-                </p>
-                <Button onClick={handleCreateGallery} loading={creatingGallery}>
-                  Create Gallery
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {currentPin && (
-                <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
-                  <p className="text-yellow-400 font-semibold text-sm">⚠️ Save this PIN — it will only be shown once!</p>
-                  <p className="text-3xl font-mono font-bold mt-1 tracking-widest">{currentPin}</p>
-                </div>
-              )}
-
-              <Card>
-                <CardHeader><CardTitle>Gallery Settings</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                  <Row label="Status" value={<Badge variant={gallery.status === "PUBLISHED" ? "success" : "outline"}>{gallery.status}</Badge>} />
-                  <Row label="Photos Selected" value={gallery._count.photos} />
-                  {galleryUrl && <Row label="Public URL" value={<a href={galleryUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all text-xs">{galleryUrl}</a>} />}
-
-                  <div className="flex flex-wrap gap-3 pt-2">
-                    {gallery.status !== "PUBLISHED" ? (
-                      <Button onClick={handlePublish} loading={publishingGallery}>
-                        Publish Gallery
-                      </Button>
-                    ) : (
-                      <Button variant="destructive" onClick={handleUnpublish}>
-                        Unpublish
-                      </Button>
-                    )}
-
-                    <Button variant="outline" onClick={handleRegeneratePin} loading={regeneratingPin}>
-                      Regenerate PIN
-                    </Button>
-
-                    {galleryUrl && (
-                      <Button
-                        variant="secondary"
-                        onClick={() => { navigator.clipboard.writeText(galleryUrl); toast.success("URL copied!"); }}
-                      >
-                        Copy URL
-                      </Button>
-                    )}
-                  </div>
-
-                  <Link href={`/events/${event.id}/photos`}>
-                    <Button variant="outline" className="w-full">
-                      Manage Photo Selection →
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
 
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
+function Row({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="flex justify-between gap-4">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-right">{value}</span>
+    <div className="flex items-center justify-between py-1.5 border-b border-white/[0.04]">
+      <span className="text-slate-400">{label}</span>
+      <span className="font-medium text-slate-200 font-mono text-[11px]">{value}</span>
     </div>
   );
 }

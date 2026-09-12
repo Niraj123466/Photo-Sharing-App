@@ -2,11 +2,28 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
+import {
+  Lock,
+  ShieldCheck,
+  Camera,
+  Calendar,
+  MapPin,
+  Share2,
+  Check,
+  Sparkles,
+  Maximize2,
+  AlertCircle,
+  SearchX,
+  ArrowRight,
+  Download,
+} from "lucide-react";
 
 type GalleryInfo = {
   id: string;
@@ -34,6 +51,7 @@ export default function GalleryPage({
   const [galleryInfo, setGalleryInfo] = useState<GalleryInfo | null>(null);
   const [loadingInfo, setLoadingInfo] = useState(true);
   const [pin, setPin] = useState(["", "", "", "", "", ""]);
+  const [pinError, setPinError] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
   const [photos, setPhotos] = useState<GalleryPhoto[]>([]);
@@ -43,11 +61,10 @@ export default function GalleryPage({
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [notFound, setNotFound] = useState(false);
   const [rateLimited, setRateLimited] = useState(false);
-  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     fetchGalleryInfo();
-    // Try session on load
     tryExistingSession();
   }, [slug]);
 
@@ -61,23 +78,29 @@ export default function GalleryPage({
       const data = await res.json();
       if (data.success) setGalleryInfo(data.data);
       else setNotFound(true);
+    } catch {
+      setNotFound(true);
     } finally {
       setLoadingInfo(false);
     }
   }
 
   async function tryExistingSession() {
-    const res = await fetch(`/api/public/gallery/${slug}/photos?limit=50`);
-    if (res.ok) {
-      const data = await res.json();
-      setVerified(true);
-      setPhotos(data.photos ?? []);
-      setNextCursor(data.nextCursor);
+    try {
+      const res = await fetch(`/api/public/gallery/${slug}/photos?limit=50`);
+      if (res.ok) {
+        const data = await res.json();
+        setVerified(true);
+        setPhotos(data.photos ?? []);
+        setNextCursor(data.nextCursor);
+      }
+    } catch {
+      // Session expired or unauthenticated
     }
   }
 
-  async function handlePinSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handlePinSubmit(e?: React.FormEvent) {
+    if (e) e.preventDefault();
     const pinStr = pin.join("");
     if (pinStr.length !== 6) {
       toast.error("Please enter all 6 digits.");
@@ -85,6 +108,7 @@ export default function GalleryPage({
     }
 
     setVerifying(true);
+    setPinError(false);
     try {
       const res = await fetch(`/api/public/gallery/${slug}/verify-pin`, {
         method: "POST",
@@ -94,7 +118,7 @@ export default function GalleryPage({
 
       if (res.status === 429) {
         setRateLimited(true);
-        const retryAfter = res.headers.get("Retry-After");
+        const retryAfter = res.headers.get("Retry-After") || "60";
         toast.error(`Too many attempts. Try again in ${retryAfter} seconds.`);
         return;
       }
@@ -103,12 +127,18 @@ export default function GalleryPage({
       if (res.ok) {
         setVerified(true);
         loadPhotos();
-        toast.success("Access granted! Enjoy the gallery.");
+        toast.success("Access granted! Welcome to the gallery.");
       } else {
+        setPinError(true);
         toast.error("Incorrect PIN. Please try again.");
-        setPin(["", "", "", "", "", ""]);
-        document.getElementById("pin-0")?.focus();
+        setTimeout(() => {
+          setPin(["", "", "", "", "", ""]);
+          setPinError(false);
+          document.getElementById("pin-0")?.focus();
+        }, 600);
       }
+    } catch {
+      toast.error("Verification failed. Please check connection.");
     } finally {
       setVerifying(false);
     }
@@ -145,6 +175,57 @@ export default function GalleryPage({
     }
   }
 
+  function handlePinPaste(e: React.ClipboardEvent) {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (!pasted) return;
+
+    const newPin = [...pin];
+    for (let i = 0; i < 6; i++) {
+      newPin[i] = pasted[i] || "";
+    }
+    setPin(newPin);
+
+    const nextIndex = Math.min(pasted.length, 5);
+    document.getElementById(`pin-${nextIndex}`)?.focus();
+
+    if (pasted.length === 6) {
+      // Trigger submission shortly
+      setTimeout(() => {
+        const pinStr = pasted;
+        setVerifying(true);
+        fetch(`/api/public/gallery/${slug}/verify-pin`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pin: pinStr }),
+        }).then(async (res) => {
+          if (res.ok) {
+            setVerified(true);
+            loadPhotos();
+            toast.success("Access granted! Welcome to the gallery.");
+          } else {
+            setPinError(true);
+            toast.error("Incorrect PIN. Please try again.");
+            setTimeout(() => {
+              setPin(["", "", "", "", "", ""]);
+              setPinError(false);
+              document.getElementById("pin-0")?.focus();
+            }, 600);
+          }
+        }).finally(() => setVerifying(false));
+      }, 100);
+    }
+  }
+
+  function copyGalleryLink() {
+    if (typeof window !== "undefined") {
+      navigator.clipboard.writeText(window.location.href);
+      setCopiedLink(true);
+      toast.success("Gallery link copied to clipboard");
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
+  }
+
   const lightboxSlides = photos
     .filter((p) => p.optimizedUrl)
     .map((p) => ({
@@ -155,10 +236,10 @@ export default function GalleryPage({
 
   if (loadingInfo) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-muted-foreground">Loading gallery...</p>
+      <div className="min-h-screen flex items-center justify-center bg-[#090A0F]">
+        <div className="text-center space-y-4">
+          <div className="w-10 h-10 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs font-mono uppercase tracking-widest text-zinc-400">Loading Secure Gallery...</p>
         </div>
       </div>
     );
@@ -166,120 +247,238 @@ export default function GalleryPage({
 
   if (notFound) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="text-6xl mb-4">🔍</div>
-          <h1 className="text-2xl font-bold">Gallery Not Found</h1>
-          <p className="text-muted-foreground mt-2">
-            This gallery doesn&apos;t exist or is no longer published.
-          </p>
+      <div className="min-h-screen flex items-center justify-center bg-[#090A0F] px-4">
+        <div className="text-center max-w-md p-8 rounded-2xl bg-[#0D0E15] border border-white/10 shadow-2xl space-y-5">
+          <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-400">
+            <SearchX className="w-7 h-7" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold tracking-tight text-white">Gallery Not Found</h1>
+            <p className="text-sm text-zinc-400 leading-relaxed">
+              This gallery link is invalid, expired, or has not been published by the lead photographer.
+            </p>
+          </div>
+          <div className="pt-2">
+            <Link href="/login">
+              <Button variant="outline" className="gap-2">
+                Go to Sign In <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Gallery header */}
-      <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-[#090A0F] text-zinc-100 flex flex-col selection:bg-indigo-500/30 selection:text-indigo-200">
+      {/* Background ambient lighting */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[500px] bg-indigo-600/10 rounded-full blur-[140px]" />
+        <div className="absolute top-1/3 -right-40 w-[500px] h-[400px] bg-cyan-600/5 rounded-full blur-[140px]" />
+      </div>
+
+      {/* Gallery Header */}
+      <header className="border-b border-white/[0.08] bg-[#090A0F]/80 backdrop-blur-md sticky top-0 z-30 transition-all">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
-              <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
-              </svg>
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+              <Camera className="w-4 h-4 text-white" />
             </div>
-            <span className="font-bold gradient-text">FrameVault</span>
+            <div>
+              <span className="font-bold tracking-tight text-white text-base">FrameVault</span>
+              <span className="hidden sm:inline-block ml-2 text-[10px] font-mono uppercase tracking-wider text-zinc-400 px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/[0.06]">
+                Client Gallery
+              </span>
+            </div>
           </div>
+
           {galleryInfo && (
-            <div className="text-right">
-              <p className="font-semibold text-sm">{galleryInfo.event.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {new Date(galleryInfo.event.eventDate).toLocaleDateString("en-US", { dateStyle: "long" })}
-                {galleryInfo.event.location && ` · ${galleryInfo.event.location}`}
-              </p>
+            <div className="flex items-center gap-3">
+              <div className="text-right hidden sm:block">
+                <p className="font-semibold text-sm text-zinc-100">{galleryInfo.event.name}</p>
+                <div className="flex items-center justify-end gap-2 text-xs text-zinc-400 font-mono mt-0.5">
+                  <span className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-zinc-400" />
+                    {new Date(galleryInfo.event.eventDate).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </span>
+                  {galleryInfo.event.location && (
+                    <span className="flex items-center gap-1 text-zinc-400">
+                      • <MapPin className="w-3 h-3 text-zinc-400" />
+                      {galleryInfo.event.location}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={copyGalleryLink}
+                className="gap-1.5 h-8 text-xs font-mono"
+              >
+                {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
+                <span className="hidden md:inline">{copiedLink ? "Copied" : "Share"}</span>
+              </Button>
             </div>
           )}
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 relative z-10">
         {!verified ? (
-          /* PIN Entry */
-          <div className="flex flex-col items-center justify-center min-h-[60vh]">
-            <div className="w-full max-w-sm">
-              <div className="text-center mb-8">
-                <div className="text-5xl mb-4">🔐</div>
-                <h1 className="text-2xl font-bold">{galleryInfo?.event.name ?? "Private Gallery"}</h1>
-                <p className="text-muted-foreground mt-2">
-                  Enter the 6-digit PIN to access this gallery
-                </p>
-              </div>
+          /* ==============================================
+             PIN ENTRY SECURITY GATEWAY
+             ============================================== */
+          <div className="flex flex-col items-center justify-center min-h-[65vh]">
+            <div className="w-full max-w-md">
+              <div className="rounded-2xl bg-[#0D0E15]/95 border border-white/10 p-7 sm:p-9 shadow-2xl backdrop-blur-xl relative overflow-hidden">
+                {/* Subtle top rim light */}
+                <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent" />
 
-              <form onSubmit={handlePinSubmit} className="space-y-6">
-                {/* PIN input */}
-                <div className="flex justify-center gap-3">
-                  {pin.map((digit, i) => (
-                    <input
-                      key={i}
-                      id={`pin-${i}`}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={1}
-                      value={digit}
-                      onChange={(e) => handlePinInput(i, e.target.value)}
-                      onKeyDown={(e) => handlePinKeyDown(i, e)}
-                      className={cn(
-                        "w-12 h-14 text-center text-2xl font-bold rounded-xl border-2 bg-card transition-all",
-                        digit ? "border-primary text-foreground" : "border-border text-muted-foreground",
-                        "focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                      )}
-                      aria-label={`PIN digit ${i + 1}`}
-                      disabled={rateLimited}
-                    />
-                  ))}
+                <div className="text-center mb-8 space-y-3">
+                  <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto text-indigo-400 shadow-inner">
+                    <Lock className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-white">
+                      {galleryInfo?.event.name ?? "Private Client Gallery"}
+                    </h1>
+                    <p className="text-xs text-zinc-400 font-mono mt-1.5">
+                      PROTECTED BY 6-DIGIT ACCESS PIN
+                    </p>
+                  </div>
+                  <p className="text-sm text-zinc-400 leading-relaxed max-w-xs mx-auto">
+                    Enter the access PIN provided by your photographer to view high-resolution event moments.
+                  </p>
                 </div>
 
-                {rateLimited && (
-                  <p className="text-center text-red-400 text-sm">
-                    Too many attempts. Please wait before trying again.
-                  </p>
-                )}
+                <form onSubmit={handlePinSubmit} className="space-y-6">
+                  {/* Discrete 6-digit boxes with paste handler */}
+                  <div
+                    className={cn(
+                      "flex justify-center gap-2.5 sm:gap-3",
+                      pinError && "animate-shake"
+                    )}
+                    onPaste={handlePinPaste}
+                  >
+                    {pin.map((digit, i) => (
+                      <input
+                        key={i}
+                        id={`pin-${i}`}
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={1}
+                        value={digit}
+                        onChange={(e) => handlePinInput(i, e.target.value)}
+                        onKeyDown={(e) => handlePinKeyDown(i, e)}
+                        className={cn(
+                          "w-11 h-14 sm:w-13 sm:h-16 text-center text-2xl font-mono font-bold rounded-xl border transition-all duration-200",
+                          "bg-[#141622] text-white focus:outline-none",
+                          digit
+                            ? "border-indigo-500/80 ring-2 ring-indigo-500/20 text-white shadow-lg shadow-indigo-500/10"
+                            : "border-white/10 text-zinc-400 hover:border-white/20",
+                          pinError && "border-rose-500/80 text-rose-300 ring-2 ring-rose-500/20",
+                          "focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/25"
+                        )}
+                        aria-label={`PIN digit ${i + 1}`}
+                        disabled={rateLimited || verifying}
+                        autoFocus={i === 0}
+                      />
+                    ))}
+                  </div>
 
-                <Button
-                  type="submit"
-                  className="w-full"
-                  loading={verifying}
-                  disabled={pin.join("").length !== 6 || rateLimited}
-                >
-                  {verifying ? "Verifying..." : "Access Gallery"}
-                </Button>
-              </form>
+                  {rateLimited && (
+                    <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-400 text-center flex items-center justify-center gap-2 font-mono">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      Rate limited. Please wait 60 seconds before trying again.
+                    </div>
+                  )}
+
+                  <Button
+                    type="submit"
+                    className="w-full h-11 text-sm font-semibold tracking-wide"
+                    loading={verifying}
+                    disabled={pin.join("").length !== 6 || rateLimited}
+                  >
+                    {verifying ? "Verifying PIN..." : "Access Private Gallery"}
+                  </Button>
+                </form>
+
+                <div className="mt-6 pt-6 border-t border-white/[0.06] text-center">
+                  <p className="text-xs text-zinc-400 font-mono">
+                    Secured by FrameVault Zero-Knowledge PIN Gateway
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         ) : (
-          /* Gallery grid */
-          <div className="space-y-6">
-            <div className="flex items-center justify-between flex-wrap gap-4">
+          /* ==============================================
+             CURATED CLIENT PHOTO GALLERY
+             ============================================== */
+          <div className="space-y-7">
+            {/* Gallery Control & Meta Bar */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-4 border-b border-white/[0.08]">
               <div>
-                <h1 className="text-2xl font-bold">{galleryInfo?.event.name}</h1>
-                <p className="text-muted-foreground text-sm mt-1">
-                  {photos.length} photo{photos.length !== 1 ? "s" : ""} · Click any photo to view full-screen
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Badge variant="cyan" className="gap-1 font-mono text-xs">
+                    <ShieldCheck className="w-3 h-3" /> Verified Access
+                  </Badge>
+                  <Badge variant="outline" className="font-mono text-xs text-zinc-400 border-white/10">
+                    {photos.length} {photos.length === 1 ? "Photo" : "Photos"}
+                  </Badge>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+                  {galleryInfo?.event.name}
+                </h1>
+                <p className="text-xs text-zinc-400 font-mono mt-1">
+                  Click any photo for cinematic lightbox inspection and high-res preview
                 </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={copyGalleryLink}
+                  className="gap-1.5 font-mono text-xs"
+                >
+                  {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
+                  Share Gallery Link
+                </Button>
               </div>
             </div>
 
+            {/* Photos Grid or Loading Skeletons */}
             {loadingPhotos && photos.length === 0 ? (
               <div className="masonry-grid">
                 {Array.from({ length: 12 }).map((_, i) => (
-                  <div key={i} className={`masonry-item skeleton rounded-xl ${i % 3 === 0 ? "h-64" : i % 3 === 1 ? "h-48" : "h-80"}`} />
+                  <div
+                    key={i}
+                    className={cn(
+                      "masonry-item skeleton rounded-xl",
+                      i % 3 === 0 ? "h-72" : i % 3 === 1 ? "h-56" : "h-96"
+                    )}
+                  />
                 ))}
               </div>
             ) : photos.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="text-5xl mb-4">📷</div>
-                <p className="text-muted-foreground">No photos in this gallery yet.</p>
+              <div className="text-center py-24 rounded-2xl bg-[#0D0E15] border border-white/10 p-8 space-y-4">
+                <div className="w-14 h-14 rounded-2xl bg-zinc-800/50 border border-white/10 flex items-center justify-center mx-auto text-zinc-500">
+                  <Camera className="w-7 h-7" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-lg font-semibold text-white">No published photos yet</h3>
+                  <p className="text-sm text-zinc-400 max-w-sm mx-auto">
+                    The photography team is actively curating and processing moments for this event. Check back soon!
+                  </p>
+                </div>
               </div>
             ) : (
               <>
@@ -287,7 +486,7 @@ export default function GalleryPage({
                   {photos.map((photo, index) => (
                     <div
                       key={photo.id}
-                      className="masonry-item group relative overflow-hidden rounded-xl cursor-pointer border border-border/30 hover:border-primary/40 transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 hover:scale-[1.01]"
+                      className="masonry-item group relative overflow-hidden rounded-xl cursor-pointer bg-[#0D0E15] border border-white/10 hover:border-indigo-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/10 hover:scale-[1.01]"
                       onClick={() => {
                         setLightboxIndex(index);
                         setLightboxOpen(true);
@@ -296,37 +495,48 @@ export default function GalleryPage({
                       {photo.thumbnailUrl ? (
                         <Image
                           src={photo.thumbnailUrl}
-                          alt={`Photo ${index + 1}`}
-                          width={photo.width ?? 400}
-                          height={photo.height ?? 300}
-                          className="w-full object-cover"
+                          alt={`${galleryInfo?.event.name ?? "Photo"} — Frame ${index + 1}`}
+                          width={photo.width ?? 600}
+                          height={photo.height ?? 400}
+                          className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105"
                           loading="lazy"
                           unoptimized
                         />
                       ) : (
-                        <div className="w-full h-48 bg-muted flex items-center justify-center text-3xl">📷</div>
+                        <div className="w-full h-56 bg-zinc-900/60 flex items-center justify-center text-zinc-600">
+                          <Camera className="w-8 h-8 opacity-40" />
+                        </div>
                       )}
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center">
-                        <svg
-                          className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={1.5}
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
-                        </svg>
+
+                      {/* Obsidian hover overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-between p-3.5">
+                        <div className="flex justify-end">
+                          <div className="w-8 h-8 rounded-lg bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-lg">
+                            <Maximize2 className="w-3.5 h-3.5" />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-xs font-mono text-zinc-300">
+                          <span>Frame #{String(index + 1).padStart(3, "0")}</span>
+                          {photo.width && photo.height && (
+                            <span className="text-[11px] text-zinc-400">
+                              {photo.width} × {photo.height}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
 
+                {/* Pagination / Cursor Load More */}
                 {nextCursor && (
-                  <div className="text-center py-4">
+                  <div className="text-center py-8">
                     <Button
                       variant="outline"
+                      size="lg"
                       onClick={() => loadPhotos(nextCursor)}
                       loading={loadingPhotos}
+                      className="gap-2 font-mono text-xs px-6"
                     >
                       Load More Photos
                     </Button>
@@ -335,7 +545,7 @@ export default function GalleryPage({
               </>
             )}
 
-            {/* Lightbox */}
+            {/* Lightbox Integration */}
             <Lightbox
               open={lightboxOpen}
               close={() => setLightboxOpen(false)}
@@ -348,6 +558,18 @@ export default function GalleryPage({
           </div>
         )}
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-white/[0.06] bg-[#090A0F] py-6 mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-400 font-mono">
+          <p>© {new Date().getFullYear()} FrameVault. High-performance photography cloud.</p>
+          <div className="flex items-center gap-4">
+            <Link href="/login" className="hover:text-zinc-300 transition-colors">
+              Photographer Login
+            </Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
