@@ -87,13 +87,19 @@ export function UploadClient({
     updateFile({ status: "uploading", progress: 10 });
 
     try {
+      const contentType = uploadFile.file.type || (
+        uploadFile.file.name.toLowerCase().endsWith(".png") ? "image/png" :
+        uploadFile.file.name.toLowerCase().endsWith(".webp") ? "image/webp" :
+        "image/jpeg"
+      );
+
       // Step 1: Get presigned URL
       const presignRes = await fetch(`/api/events/${event.id}/photos/presign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           filename: uploadFile.file.name,
-          contentType: uploadFile.file.type,
+          contentType,
           fileSize: uploadFile.file.size,
         }),
       });
@@ -105,7 +111,7 @@ export function UploadClient({
 
       updateFile({ progress: 30 });
 
-      // Step 2: Upload directly to R2 using XMLHttpRequest for progress tracking
+      // Step 2: Upload directly to R2/S3 using XMLHttpRequest for progress tracking
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.upload.addEventListener("progress", (e) => {
@@ -120,7 +126,7 @@ export function UploadClient({
         });
         xhr.addEventListener("error", () => reject(new Error("Network error during upload.")));
         xhr.open("PUT", presignData.data.presignedUrl);
-        xhr.setRequestHeader("Content-Type", uploadFile.file.type);
+        xhr.setRequestHeader("Content-Type", contentType);
         xhr.send(uploadFile.file);
       });
 

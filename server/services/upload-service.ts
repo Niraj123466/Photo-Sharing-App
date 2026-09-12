@@ -1,24 +1,14 @@
 import { prisma } from "@/lib/db";
-import { buildStorageKey, generatePresignedDownloadUrl } from "@/lib/storage/storage";
+import { buildStorageKey } from "@/lib/storage/storage";
+import { getR2Client } from "@/lib/storage/r2";
 import sharp from "sharp";
-import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
 
 const THUMBNAIL_WIDTH = 400;
 const OPTIMIZED_WIDTH = 1920;
 const THUMBNAIL_QUALITY = 80;
 const OPTIMIZED_QUALITY = 85;
-
-function getR2Client(): S3Client {
-  return new S3Client({
-    region: "auto",
-    endpoint: process.env.R2_ENDPOINT!,
-    credentials: {
-      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-    },
-  });
-}
 
 async function streamToBuffer(stream: Readable): Promise<Buffer> {
   const chunks: Buffer[] = [];

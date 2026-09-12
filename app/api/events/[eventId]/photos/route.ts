@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, { params }: Params) {
       throw new AuthorizationError("NOT_FOUND", "Event not found.", 404);
     }
 
-    const isAdmin = session.user.role === "ADMIN" && event.createdById === session.user.id;
+    const isAdmin = session.user.role === "ADMIN";
     if (!isAdmin) {
       // Must be assigned member
       const membership = await prisma.eventMember.findUnique({

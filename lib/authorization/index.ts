@@ -38,41 +38,34 @@ export async function requireAdmin(): Promise<AuthSession> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// requireEventAdmin — must be ADMIN and own the event
+// requireEventAdmin — must be ADMIN
 // ─────────────────────────────────────────────────────────────────────────────
 export async function requireEventAdmin(eventId: string): Promise<AuthSession> {
   const session = await requireAdmin();
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    select: { createdById: true },
+    select: { id: true },
   });
   if (!event) {
     throw new AuthorizationError("NOT_FOUND", "Event not found.", 404);
-  }
-  if (event.createdById !== session.user.id) {
-    throw new AuthorizationError(
-      "FORBIDDEN",
-      "You do not have permission to manage this event.",
-      403
-    );
   }
   return session;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// requireEventMember — must be assigned to the event (ADMIN owner or TEAM_MEMBER)
+// requireEventMember — must be assigned to the event (or any ADMIN)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function requireEventMember(eventId: string): Promise<AuthSession> {
   const session = await requireAuth();
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    select: { createdById: true },
+    select: { id: true },
   });
   if (!event) {
     throw new AuthorizationError("NOT_FOUND", "Event not found.", 404);
   }
-  // Admin owner always has access
-  if (session.user.role === "ADMIN" && event.createdById === session.user.id) {
+  // Any Admin has access to events
+  if (session.user.role === "ADMIN") {
     return session;
   }
   // Team member must have an EventMember record
@@ -90,7 +83,7 @@ export async function requireEventMember(eventId: string): Promise<AuthSession> 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// requireGalleryAdmin — must be ADMIN and own the event linked to gallery
+// requireGalleryAdmin — must be ADMIN
 // ─────────────────────────────────────────────────────────────────────────────
 export async function requireGalleryAdmin(
   galleryId: string
@@ -98,17 +91,10 @@ export async function requireGalleryAdmin(
   const session = await requireAdmin();
   const gallery = await prisma.gallery.findUnique({
     where: { id: galleryId },
-    select: { event: { select: { createdById: true } } },
+    select: { id: true },
   });
   if (!gallery) {
     throw new AuthorizationError("NOT_FOUND", "Gallery not found.", 404);
-  }
-  if (gallery.event.createdById !== session.user.id) {
-    throw new AuthorizationError(
-      "FORBIDDEN",
-      "You do not have permission to manage this gallery.",
-      403
-    );
   }
   return session;
 }

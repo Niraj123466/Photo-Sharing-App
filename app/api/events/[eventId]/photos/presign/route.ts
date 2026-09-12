@@ -5,7 +5,7 @@ import { presignUploadSchema } from "@/lib/validation/schemas";
 import { generatePresignedUploadUrl, buildStorageKey } from "@/lib/storage/storage";
 import { presignLimiter, applyRateLimit, getClientIp } from "@/lib/rate-limit";
 
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/jpg", "image/pjpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
 type Params = { params: Promise<{ eventId: string }> };
 
