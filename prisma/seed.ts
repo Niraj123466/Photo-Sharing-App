@@ -74,7 +74,8 @@ async function main() {
       name: "Arjun & Priya Wedding Gallery",
       publicSlug: "demo-wedding",
       pinHash,
-      status: "DRAFT", // Not published — requires photos to be uploaded first
+      status: "PUBLISHED",
+      publishedAt: new Date(),
     },
   });
   console.log(`✅ Gallery created: /gallery/demo-wedding`);
