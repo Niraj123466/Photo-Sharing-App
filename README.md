@@ -1,6 +1,9 @@
 # FrameVault — Photography Event Gallery Platform
 
-A production-quality, full-stack collaborative photography event gallery platform built with Next.js 14, PostgreSQL (Neon), Cloudflare R2, Auth.js, and Sharp.
+> **Live Production**: [https://photo-sharing.nirajmore.in](https://photo-sharing.nirajmore.in)  
+> **Exhaustive Documentation**: See [DOCUMENTATION.md](DOCUMENTATION.md) for the complete end-to-end architectural, security, database, and API specifications.
+
+A production-quality, full-stack collaborative photography event gallery platform built with Next.js 14, PostgreSQL (Neon), Backblaze B2 (S3 API), Auth.js, and Sharp.
 
 ---
 
